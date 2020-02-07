@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 )
 
+// 程序配置
 type Config struct {
 	ApiPort               int      `json:"apiPort"`
 	ApiReadTimeout        int      `json:"apiReadTimeout"`
@@ -26,6 +27,7 @@ func InitConfig(filename string) (err error) {
 		content []byte
 		conf    Config
 	)
+
 	// 1.把配置文件读进来
 	if content, err = ioutil.ReadFile(filename); err != nil {
 		return
@@ -38,5 +40,6 @@ func InitConfig(filename string) (err error) {
 
 	// 3.赋值单例
 	G_config = &conf
+
 	return
 }
