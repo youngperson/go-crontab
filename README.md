@@ -21,7 +21,15 @@
 ## 项目结构
 - crontab
     - /master
+        - 搭建go项目框架，配置文件，命令行参数，线程配置
+        - 给web后台提供http API，用于管理job
+        - 写一个web后台的前端页面，bootstrap+jquery，前后端分离开发
     - /worker
+        - 从etcd中把job同步到内存中
+        - 实现调度模块，基于cron表达式调用N个job
+        - 实现执行模块，并发的执行多个job
+        - 对job的分布式锁，防止集群并发
+        - 把执行日志保存到MongoDB
     - /common
 
  	
