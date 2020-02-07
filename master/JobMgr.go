@@ -34,7 +34,7 @@ func InitJobMgr() (err error) {
 	// 初始化配置
 	config = clientv3.Config{
 		Endpoints:   G_config.EtcdEndpoints, // 集群地址
-		DialTimeout: time.Duration(G_config.EtcdDiatimeout) * time.Millisecond,
+		DialTimeout: time.Duration(G_config.EtcdDialTimeout) * time.Millisecond,
 	}
 
 	// 建立连接
