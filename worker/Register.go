@@ -64,7 +64,7 @@ func (register *Register) keepOnline() {
 
 	for {
 		// 注册路径
-		regKey = common.JOB_WORKER_DIR
+		regKey = common.JOB_WORKER_DIR + register.localIP
 
 		cancelFunc = nil
 

@@ -6,7 +6,7 @@
     "etcdDialTimeout": 5000,
   
     "mongodb地址": "采用mongodb URI",
-    "mongodbUri": "mongodb://36.111.184.221:27017",
+    "mongodbUri": "mongodb://0.0.0.0:27017",
   
     "mongodb连接超时时间": "单位毫秒",
     "mongodbConnectTimeout": 5000,
