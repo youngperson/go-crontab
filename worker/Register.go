@@ -3,6 +3,8 @@ package worker
 import (
 	"context"
 	"net"
+	"strconv"
+	"syscall"
 	"time"
 
 	"github.com/coreos/etcd/clientv3"
@@ -15,7 +17,7 @@ type Register struct {
 	kv     clientv3.KV
 	lease  clientv3.Lease
 
-	localIP string // 本机IP
+	localIP string // 本机IP + 进程号 (解决单机启多个worker的问题)
 }
 
 var (
@@ -47,6 +49,12 @@ func getLocalIP() (ipv4 string, err error) {
 	}
 
 	err = common.ERR_NO_LOCAL_IP_FOUND
+	return
+}
+
+// 获取当前运行的进程号
+func getRunningPid() (pid int) {
+	pid = syscall.Getpid()
 	return
 }
 
@@ -108,6 +116,7 @@ func InitRegister() (err error) {
 		config  clientv3.Config
 		client  *clientv3.Client
 		localIp string
+		pid     int
 		kv      clientv3.KV
 		lease   clientv3.Lease
 	)
@@ -128,6 +137,9 @@ func InitRegister() (err error) {
 		return
 	}
 
+	// pid
+	pid = getRunningPid()
+
 	// 得到KV和Lease的API子集
 	kv = clientv3.NewKV(client)
 	lease = clientv3.NewLease(client)
@@ -136,7 +148,7 @@ func InitRegister() (err error) {
 		client:  client,
 		kv:      kv,
 		lease:   lease,
-		localIP: localIp,
+		localIP: localIp + ":" + strconv.Itoa(pid),
 	}
 
 	// worker服务注册
