@@ -13,7 +13,6 @@ type Scheduler struct {
 	jobPlanTable      map[string]*common.JobSchedulePlan // 任务调度计划表
 	jobExecutingTable map[string]*common.JobExecuteInfo  // 任务执行表
 	jobResultChan     chan *common.JobExecuteResult      // 任务结果队列
-	jobUnlockTable    map[string]*JobUnlock              // jobname释放锁列表(轮询里面的锁,过期则释放)
 }
 
 var (
@@ -77,19 +76,6 @@ func (scheduler *Scheduler) handleJobResult(result *common.JobExecuteResult) {
 	fmt.Println("任务执行完成:", result.ExecuteInfo.Job.Name, string(result.Output), result.Err)
 }
 
-// 处理锁释放
-func (scheduler *Scheduler) handleJobUnlock(unlock *JobUnlock) {
-	var (
-		nextTime int64
-	)
-	nextTime = unlock.nextTime
-	if nextTime <= time.Now().Unix() {
-		fmt.Println("释放锁完成：", unlock.lock.jobName)
-		unlock.lock.Unlock()
-		delete(scheduler.jobUnlockTable, unlock.lock.jobName)
-	}
-}
-
 // 调度协程
 func (scheduler *Scheduler) scheduleLoop() {
 	var (
@@ -119,23 +105,6 @@ func (scheduler *Scheduler) scheduleLoop() {
 		scheduleAfter = scheduler.TrySchedule()
 		// 重置调度间隔
 		scheduleTimer.Reset(scheduleAfter)
-	}
-}
-
-// 释放锁协程
-func (scheduler *Scheduler) jobUnlockLoop() {
-	var (
-		jobUnlock *JobUnlock
-	)
-	ticker := time.NewTicker(1 * time.Millisecond)
-	for {
-		select {
-		case <-ticker.C:
-			// 列表很大可能有性能问题,需要改为延时队列的做法、也可以是轮询+Redis的有序集合方式
-			for _, jobUnlock = range scheduler.jobUnlockTable {
-				scheduler.handleJobUnlock(jobUnlock)
-			}
-		}
 	}
 }
 
@@ -212,12 +181,9 @@ func InitScheduler() (err error) {
 		jobPlanTable:      make(map[string]*common.JobSchedulePlan),
 		jobExecutingTable: make(map[string]*common.JobExecuteInfo),
 		jobResultChan:     make(chan *common.JobExecuteResult, 1000),
-		jobUnlockTable:    make(map[string]*JobUnlock),
 	}
 	// 启动调度协程
 	go G_scheduler.scheduleLoop()
-	// 启动释放锁协程
-	go G_scheduler.jobUnlockLoop()
 	return
 }
 

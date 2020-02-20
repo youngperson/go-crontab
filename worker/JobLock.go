@@ -19,11 +19,6 @@ type JobLock struct {
 	isLocked   bool               // 是否上锁成功
 }
 
-type JobUnlock struct {
-	lock     *JobLock
-	nextTime int64 // 锁在下一次执行前释放
-}
-
 // 初始化一把锁
 func InitJobLock(jobName string, kv clientv3.KV, lease clientv3.Lease) (jobLock *JobLock) {
 	jobLock = &JobLock{

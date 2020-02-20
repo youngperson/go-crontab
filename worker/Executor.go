@@ -69,7 +69,7 @@ func (executor *Executor) ExecuteJob(info *common.JobExecuteInfo) {
 				lock:     jobLock,
 				nextTime: nextTime.Unix(),
 			}
-			G_scheduler.jobUnlockTable[info.Job.Name] = jobUnlock
+			G_safemap.writeMap(info.Job.Name, jobUnlock)
 		}
 		// 任务执行完成后，把执行的结果返回给Scheduler，Scheduler会从executingTable中删除掉执行记录
 		G_scheduler.PushJobResult(result)

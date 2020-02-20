@@ -67,6 +67,11 @@ func main() {
 		goto ERR
 	}
 
+	// 初始化释放锁的协程
+	if err = worker.InitSafeMap(); err != nil {
+		goto ERR
+	}
+
 	// 正常退出
 	for {
 		time.Sleep(1 * time.Second)
