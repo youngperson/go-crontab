@@ -13,6 +13,7 @@ type Scheduler struct {
 	jobPlanTable      map[string]*common.JobSchedulePlan // 任务调度计划表
 	jobExecutingTable map[string]*common.JobExecuteInfo  // 任务执行表
 	jobResultChan     chan *common.JobExecuteResult      // 任务结果队列
+	jobUnlockChan     chan *JobUnlock                    // jobname释放锁队列
 }
 
 var (
@@ -73,7 +74,22 @@ func (scheduler *Scheduler) handleJobResult(result *common.JobExecuteResult) {
 		G_logSink.Append(jobLog)
 	}
 
-	// fmt.Println("任务执行完成:", result.ExecuteInfo.Job.Name, string(result.Output), result.Err)
+	fmt.Println("任务执行完成:", result.ExecuteInfo.Job.Name, string(result.Output), result.Err)
+}
+
+// 处理锁释放
+func (scheduler *Scheduler) handleJobUnlock(unlock *JobUnlock) {
+	var (
+		nextTime int64
+	)
+	nextTime = unlock.nextTime
+	if nextTime <= time.Now().Unix() {
+		fmt.Println("释放锁完成：", unlock.lock.jobName)
+		unlock.lock.Unlock()
+	} else {
+		// 写回channel中
+		scheduler.PushjobUnlock(unlock)
+	}
 }
 
 // 调度协程
@@ -83,6 +99,7 @@ func (scheduler *Scheduler) scheduleLoop() {
 		scheduleAfter time.Duration
 		scheduleTimer *time.Timer
 		jobResult     *common.JobExecuteResult
+		jobUnlock     *JobUnlock
 	)
 
 	// 初始化一次(1秒)
@@ -100,6 +117,8 @@ func (scheduler *Scheduler) scheduleLoop() {
 		case <-scheduleTimer.C: // 最近的任务到期了
 		case jobResult = <-scheduler.jobResultChan: // 监听任务执行结果
 			scheduler.handleJobResult(jobResult)
+		case jobUnlock = <-scheduler.jobUnlockChan: // 监听jobname的锁释放队列
+			scheduler.handleJobUnlock(jobUnlock)
 		}
 		// 调度一次任务
 		scheduleAfter = scheduler.TrySchedule()
@@ -131,7 +150,7 @@ func (scheduler *Scheduler) TryStartJob(jobPlan *common.JobSchedulePlan) {
 	scheduler.jobExecutingTable[jobPlan.Job.Name] = jobExecuteInfo
 
 	// 执行任务
-	fmt.Println("执行任务:", jobExecuteInfo.Job.Name, jobExecuteInfo.PlanTime, jobExecuteInfo.RealTime)
+	// fmt.Println("执行任务:", jobExecuteInfo.Job.Name, jobExecuteInfo.PlanTime, jobExecuteInfo.RealTime)
 	G_executor.ExecuteJob(jobExecuteInfo)
 }
 
@@ -181,6 +200,7 @@ func InitScheduler() (err error) {
 		jobPlanTable:      make(map[string]*common.JobSchedulePlan),
 		jobExecutingTable: make(map[string]*common.JobExecuteInfo),
 		jobResultChan:     make(chan *common.JobExecuteResult, 1000),
+		jobUnlockChan:     make(chan *JobUnlock, 1000),
 	}
 	// 启动调度协程
 	go G_scheduler.scheduleLoop()
@@ -190,4 +210,9 @@ func InitScheduler() (err error) {
 // 回传任务执行结果
 func (scheduler *Scheduler) PushJobResult(jobResult *common.JobExecuteResult) {
 	scheduler.jobResultChan <- jobResult
+}
+
+// 回传释放锁的数据
+func (scheduler *Scheduler) PushjobUnlock(jobUnlock *JobUnlock) {
+	scheduler.jobUnlockChan <- jobUnlock
 }

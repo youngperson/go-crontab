@@ -1,7 +1,6 @@
 package worker
 
 import (
-	"math/rand"
 	"os/exec"
 	"time"
 
@@ -20,11 +19,13 @@ var (
 func (executor *Executor) ExecuteJob(info *common.JobExecuteInfo) {
 	go func() {
 		var (
-			cmd     *exec.Cmd
-			err     error
-			output  []byte
-			result  *common.JobExecuteResult
-			jobLock *JobLock
+			cmd       *exec.Cmd
+			err       error
+			output    []byte
+			result    *common.JobExecuteResult
+			jobLock   *JobLock
+			jobUnlock *JobUnlock
+			nextTime  time.Time
 		)
 
 		// 任务结果
@@ -40,16 +41,13 @@ func (executor *Executor) ExecuteJob(info *common.JobExecuteInfo) {
 		result.StartTime = time.Now()
 
 		// 上锁
-		// 随机睡眠(0~1s)，假设机器之间的时间误差是1秒。保证每个worker都能获取到锁
 		// 机器上会部署ntp对时间进行校验统一
-		time.Sleep(time.Duration(rand.Intn(1000)) * time.Millisecond)
-
 		err = jobLock.TryLock()
-		defer jobLock.Unlock()
 
 		if err != nil { // 上锁失败
 			result.Err = err
 			result.EndTime = time.Now()
+			jobLock.Unlock()
 		} else {
 			// 上锁成功后，重置任务启动时间
 			result.StartTime = time.Now()
@@ -64,6 +62,14 @@ func (executor *Executor) ExecuteJob(info *common.JobExecuteInfo) {
 			result.EndTime = time.Now()
 			result.Output = output
 			result.Err = err
+
+			// 不马上释放锁，在下一个任务开始之前释放(防止被其它worker执行多次)
+			nextTime = G_scheduler.jobPlanTable[info.Job.Name].NextTime
+			jobUnlock = &JobUnlock{
+				lock:     jobLock,
+				nextTime: nextTime.Unix(),
+			}
+			G_scheduler.PushjobUnlock(jobUnlock)
 		}
 		// 任务执行完成后，把执行的结果返回给Scheduler，Scheduler会从executingTable中删除掉执行记录
 		G_scheduler.PushJobResult(result)
