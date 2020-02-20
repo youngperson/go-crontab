@@ -1,8 +1,6 @@
 # TODO
-- worker运行一段时间就CPU飙高
-    - 需要去解决
 - 已解决：1分钟会调度60次，多个worker但是只能执行1次。
-    - 利用锁不马上释放，放到channel中的处理
+    - 利用锁不马上释放，放到channel中的处理(改为放到map中去 + 轮询)
 
 # go-crontab
 ## 传统方法-crontab

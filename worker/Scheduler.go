@@ -13,7 +13,7 @@ type Scheduler struct {
 	jobPlanTable      map[string]*common.JobSchedulePlan // 任务调度计划表
 	jobExecutingTable map[string]*common.JobExecuteInfo  // 任务执行表
 	jobResultChan     chan *common.JobExecuteResult      // 任务结果队列
-	jobUnlockChan     chan *JobUnlock                    // jobname释放锁队列
+	jobUnlockTable    map[string]*JobUnlock              // jobname释放锁列表(轮询里面的锁,过期则释放)
 }
 
 var (
@@ -86,9 +86,7 @@ func (scheduler *Scheduler) handleJobUnlock(unlock *JobUnlock) {
 	if nextTime <= time.Now().Unix() {
 		fmt.Println("释放锁完成：", unlock.lock.jobName)
 		unlock.lock.Unlock()
-	} else {
-		// 写回channel中
-		scheduler.PushjobUnlock(unlock)
+		delete(scheduler.jobUnlockTable, unlock.lock.jobName)
 	}
 }
 
@@ -99,7 +97,6 @@ func (scheduler *Scheduler) scheduleLoop() {
 		scheduleAfter time.Duration
 		scheduleTimer *time.Timer
 		jobResult     *common.JobExecuteResult
-		jobUnlock     *JobUnlock
 	)
 
 	// 初始化一次(1秒)
@@ -117,13 +114,28 @@ func (scheduler *Scheduler) scheduleLoop() {
 		case <-scheduleTimer.C: // 最近的任务到期了
 		case jobResult = <-scheduler.jobResultChan: // 监听任务执行结果
 			scheduler.handleJobResult(jobResult)
-		case jobUnlock = <-scheduler.jobUnlockChan: // 监听jobname的锁释放队列
-			scheduler.handleJobUnlock(jobUnlock)
 		}
 		// 调度一次任务
 		scheduleAfter = scheduler.TrySchedule()
 		// 重置调度间隔
 		scheduleTimer.Reset(scheduleAfter)
+	}
+}
+
+// 释放锁协程
+func (scheduler *Scheduler) jobUnlockLoop() {
+	var (
+		jobUnlock *JobUnlock
+	)
+	ticker := time.NewTicker(1 * time.Millisecond)
+	for {
+		select {
+		case <-ticker.C:
+			// 列表很大可能有性能问题,需要改为延时队列的做法、也可以是轮询+Redis的有序集合方式
+			for _, jobUnlock = range scheduler.jobUnlockTable {
+				scheduler.handleJobUnlock(jobUnlock)
+			}
+		}
 	}
 }
 
@@ -200,19 +212,16 @@ func InitScheduler() (err error) {
 		jobPlanTable:      make(map[string]*common.JobSchedulePlan),
 		jobExecutingTable: make(map[string]*common.JobExecuteInfo),
 		jobResultChan:     make(chan *common.JobExecuteResult, 1000),
-		jobUnlockChan:     make(chan *JobUnlock, 1000),
+		jobUnlockTable:    make(map[string]*JobUnlock),
 	}
 	// 启动调度协程
 	go G_scheduler.scheduleLoop()
+	// 启动释放锁协程
+	go G_scheduler.jobUnlockLoop()
 	return
 }
 
 // 回传任务执行结果
 func (scheduler *Scheduler) PushJobResult(jobResult *common.JobExecuteResult) {
 	scheduler.jobResultChan <- jobResult
-}
-
-// 回传释放锁的数据
-func (scheduler *Scheduler) PushjobUnlock(jobUnlock *JobUnlock) {
-	scheduler.jobUnlockChan <- jobUnlock
 }
