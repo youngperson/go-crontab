@@ -2,8 +2,9 @@ package worker
 
 import (
 	"fmt"
-	"sync"
 	"time"
+
+	cmap "github.com/orcaman/concurrent-map"
 )
 
 type JobUnlock struct {
@@ -12,8 +13,7 @@ type JobUnlock struct {
 }
 
 type SafeMap struct {
-	sync.RWMutex                         // 解决对map并发读写的报错问题
-	jobUnlockTable map[string]*JobUnlock // jobname释放锁列表(轮询里面的锁,过期则释放)
+	Map cmap.ConcurrentMap
 }
 
 var (
@@ -21,27 +21,24 @@ var (
 )
 
 func (safemap *SafeMap) writeMap(key string, value *JobUnlock) {
-	safemap.Lock()
-	safemap.jobUnlockTable[key] = value
-	safemap.Unlock()
+	safemap.Map.Set(key, value)
 }
 
 func (safemap *SafeMap) deleteMap(key string) {
-	safemap.Lock()
-	delete(safemap.jobUnlockTable, key)
-	safemap.Unlock()
+	safemap.Map.Remove(key)
 }
 
 func (safemap *SafeMap) readMap(key string) *JobUnlock {
-	safemap.RLock()
-	value := safemap.jobUnlockTable[key]
-	safemap.RUnlock()
-	return value
+	if tmp, ok := safemap.Map.Get(key); ok {
+		return tmp.(*JobUnlock)
+	}
+	return &JobUnlock{}
 }
 
 // 释放锁协程
 func (safemap *SafeMap) jobUnlockLoop() {
 	var (
+		item      interface{}
 		jobUnlock *JobUnlock
 		nextTime  int64
 		jobName   string
@@ -51,7 +48,8 @@ func (safemap *SafeMap) jobUnlockLoop() {
 		select {
 		case <-ticker.C:
 			// 列表很大可能有性能问题,需要改为延时队列的做法、也可以是轮询+Redis的有序集合方式
-			for _, jobUnlock = range safemap.jobUnlockTable {
+			for _, item = range safemap.Map.Items() {
+				jobUnlock = item.(*JobUnlock)
 				nextTime = jobUnlock.nextTime
 				if nextTime <= time.Now().Unix() {
 					jobName = jobUnlock.lock.jobName
@@ -66,9 +64,9 @@ func (safemap *SafeMap) jobUnlockLoop() {
 
 // 初始化对map的读写
 func InitSafeMap() (err error) {
-	sm := new(SafeMap)
-	sm.jobUnlockTable = make(map[string]*JobUnlock)
-	G_safemap = sm
+	G_safemap = &SafeMap{
+		Map: cmap.New(),
+	}
 	// 启动释放锁协程
 	go G_safemap.jobUnlockLoop()
 	return
