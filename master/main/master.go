@@ -3,6 +3,9 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
+	"net/http"
+	_ "net/http/pprof"
 	"runtime"
 	"time"
 
@@ -60,6 +63,11 @@ func main() {
 	if err = master.InitApiServer(); err != nil {
 		goto ERR
 	}
+
+	// pprof
+	go func() {
+		log.Println(http.ListenAndServe("0.0.0.0:6060", nil))
+	}()
 
 	// 正常退出
 	for {
