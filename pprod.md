@@ -14,6 +14,7 @@ go func() {
 
 # 查看性能数据
 - http://127.0.0.1:6060/debug/pprof/
+```
 Types of profiles available:
 Count	Profile
 150	allocs      # 过去所有内存分配的采样
@@ -26,6 +27,7 @@ Count	Profile
 21	threadcreate    # 创建系统线程的堆栈跟踪
 0	trace       # 对当前程序执行的跟踪 生成文件使用go tool trace工具分析    
 full goroutine stack dump   # 显示所有goroutine的堆栈
+```
 
 # 安装Graphviz 
 - 用于go tool工具生成的数据中进行在浏览器中画图
@@ -34,6 +36,7 @@ full goroutine stack dump   # 显示所有goroutine的堆栈
 ## go tool trace trace文件
 - 通过上面的性能地址下周的trace文件
 - 会通过网页的方式打开如下视图
+```
 View trace                        # 视图跟踪
 Goroutine analysis
 Network blocking profile
@@ -42,6 +45,7 @@ Syscall blocking profile
 Scheduler latency profile         # 调度延迟
 User-defined tasks
 User-defined regions
+```
 
 ## go tool pprof 
 - go tool pprof -http=:8000 http://127.0.0.1:6060/debug/pprof/heap  查看内存使用
