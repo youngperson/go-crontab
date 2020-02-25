@@ -27,4 +27,26 @@ Count	Profile
 0	trace       # 对当前程序执行的跟踪 生成文件使用go tool trace工具分析    
 full goroutine stack dump   # 显示所有goroutine的堆栈
 
+# 安装Graphviz 
+- 用于go tool工具生成的数据中进行在浏览器中画图
+- Mac下使用brew install graphviz
+
+## go tool trace trace文件
+- 通过上面的性能地址下周的trace文件
+- 会通过网页的方式打开如下视图
+View trace                        # 视图跟踪
+Goroutine analysis
+Network blocking profile
+Synchronization blocking profile  # 同步阻塞
+Syscall blocking profile
+Scheduler latency profile         # 调度延迟
+User-defined tasks
+User-defined regions
+
+## go tool pprof 
+- go tool pprof -http=:8000 http://127.0.0.1:6060/debug/pprof/heap  查看内存使用
+- go tool pprof -http=:8000 http://127.0.0.1:6060/debug/pprof/profile 查看CPU使用
+- go tool pprof http://127.0.0.1:6060/debug/pprof/block
+- go tool pprof http://127.0.0.1:6060/debug/pprof/mutex
+
 
