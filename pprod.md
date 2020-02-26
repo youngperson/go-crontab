@@ -34,7 +34,7 @@ full goroutine stack dump   # 显示所有goroutine的堆栈
 - Mac下使用brew install graphviz
 
 ## go tool trace trace文件
-- 通过上面的性能地址下周的trace文件
+- 通过上面的性能地址下载的trace文件
 - 会通过网页的方式打开如下视图
 ```
 View trace                        # 视图跟踪
