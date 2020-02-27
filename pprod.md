@@ -33,7 +33,7 @@ full goroutine stack dump   # 显示所有goroutine的堆栈
 - 用于go tool工具生成的数据中进行在浏览器中画图
 - Mac下使用brew install graphviz
 
-## go tool trace trace文件
+## go tool trace文件
 - 通过上面的性能地址下载的trace文件
 - 会通过网页的方式打开如下视图
 ```
